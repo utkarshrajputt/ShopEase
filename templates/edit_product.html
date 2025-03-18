@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="max-w-lg mx-auto py-10">
+        <h1 class="text-2xl font-bold text-center mb-6">Edit Product: {{ product.name }}</h1>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} text-center">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        <form method="post" enctype="multipart/form-data" class="space-y-6 bg-white p-6 rounded-lg shadow-md">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="form-field">
+                    {% if field.name == 'price' %}
+                        <label for="{{ field.id_for_label }}" class="block text-gray-700 font-medium mb-2">Price (₹)</label>
+                    {% else %}
+                        {{ field.label_tag }}
+                    {% endif %}
+                    {{ field }}
+                    {% if field.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ field.errors }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700">Update Product</button>
+        </form>
+    </div>
+{% endblock %}

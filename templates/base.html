@@ -1,0 +1,232 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopEase</title>
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://kit.fontawesome.com/62172669bd.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="font-sans bg-gray-100 text-gray-900">
+    <nav class="bg-white shadow-md fixed top-0 left-0 w-full z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <!-- Logo -->
+            <a href="{% url 'home' %}" class="text-2xl font-bold text-blue-700">ShopEase</a>
+
+            <!-- Mobile Menu Toggle -->
+            <button id="nav-toggle" class="md:hidden text-gray-700 focus:outline-none">
+                <i class="fas fa-bars w-6 h-6"></i>
+            </button>
+
+            <!-- Desktop Navbar -->
+            <div class="hidden md:flex items-center space-x-6">
+                <a href="{% url 'home' %}" class="text-gray-700 hover:text-blue-700" title="Home">
+                    <i class="fas fa-home w-6 h-6"></i>
+                </a>
+                <a href="{% url 'product_list' %}" class="text-gray-700 hover:text-blue-700" title="Products">
+                    <i class="fas fa-shopping-bag w-6 h-6"></i>
+                </a>
+                {% if user.is_authenticated %}
+                    {% if user.role == 'buyer' %}
+                        <a href="{% url 'view_cart' %}" class="relative text-gray-700 hover:text-blue-700" title="Cart">
+                            <i class="fas fa-shopping-cart w-6 h-6"></i>
+                            {% with cart_items_count=user.cart.items.count %}
+                                {% if cart_items_count > 0 %}
+                                    <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ cart_items_count }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </a>
+                        <a href="{% url 'notifications' %}" class="relative text-gray-700 hover:text-blue-700" title="Notifications">
+                            <i class="fas fa-bell w-6 h-6"></i>
+                            {% if unread_notifications > 0 %}
+                                <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ unread_notifications }}</span>
+                            {% endif %}
+                        </a>
+                        <!-- Buyer Dropdown -->
+                        <div class="relative flex items-center space-x-2">
+                            <button id="dropdown-toggle" class="flex items-center text-gray-700 hover:text-blue-700 focus:outline-none">
+                                {% if user.profile_picture %}
+                                    <img src="{{ user.profile_picture.url }}" alt="Profile" class="w-8 h-8 rounded-full object-cover">
+                                {% else %}
+                                    <i class="fas fa-user w-6 h-6"></i>
+                                {% endif %}
+                                <span class="text-gray-700 font-medium">{{ user.username }}</span>
+                            </button>
+                            <div id="dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-2 z-50 top-full">
+                                <a href="{% url 'buyer_profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
+                                <a href="{% url 'order_history' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Orders</a>
+                                <a href="{% url 'logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+                            </div>
+                        </div>
+                    {% elif user.role == 'seller' %}
+                        <a href="{% url 'seller_notifications' %}" class="relative text-gray-700 hover:text-blue-700" title="Notifications">
+                            <i class="fas fa-bell w-6 h-6"></i>
+                            {% if unread_notifications > 0 %}
+                                <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ unread_notifications }}</span>
+                            {% endif %}
+                        </a>
+                        <!-- Seller Dashboard Icon -->
+                        <a href="{% url 'seller_dashboard' %}" class="text-gray-700 hover:text-blue-700" title="Dashboard">
+                            <i class="fas fa-tachometer-alt w-6 h-6"></i>
+                        </a>
+                        <!-- Seller Logout Icon -->
+                        <a href="{% url 'logout' %}" class="text-gray-700 hover:text-blue-700" title="Logout">
+                            <i class="fas fa-sign-out-alt w-6 h-6"></i>
+                        </a>
+                        <!-- Seller Username (No Dropdown) -->
+                        {% if user.is_authenticated %}
+                        <div class="relative">
+                            <a href="{% url 'seller_profile' %}" class="text-gray-700 hover:text-blue-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                                <i class="fas fa-user-cog mr-2"></i> {{ user.username }}
+                            </a>
+                        </div>
+                    {% endif %}
+                        <!-- <div class="flex items-center space-x-2 text-gray-700">
+                            {% if user.profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="Profile" class="w-8 h-8 rounded-full object-cover">
+                            {% else %}
+                                <i class="fas fa-user w-6 h-6"></i>
+                            {% endif %}
+                            <span class="text-gray-700 font-medium">{{ user.username }}</span>
+                        </div> -->
+                    {% endif %}
+                {% else %}
+                    <a href="{% url 'login' %}" class="text-gray-700 hover:text-blue-700" title="Login">
+                        <i class="fas fa-sign-in-alt w-6 h-6"></i>
+                    </a>
+                    <a href="{% url 'register' %}" class="text-gray-700 hover:text-blue-700" title="Register">
+                        <i class="fas fa-user-plus w-6 h-6"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white shadow-md">
+            <div class="container mx-auto px-4 py-4 space-y-4">
+                <a href="{% url 'home' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700">
+                    <i class="fas fa-home w-6 h-6"></i>
+                    <span>Home</span>
+                </a>
+                <a href="{% url 'product_list' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700">
+                    <i class="fas fa-shopping-bag w-6 h-6"></i>
+                    <span>Products</span>
+                </a>
+                {% if user.is_authenticated %}
+                    {% if user.role == 'buyer' %}
+                        <a href="{% url 'view_cart' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700 relative">
+                            <i class="fas fa-shopping-cart w-6 h-6"></i>
+                            <span>Cart</span>
+                            {% with cart_items_count=user.cart.items.count %}
+                                {% if cart_items_count > 0 %}
+                                    <span class="absolute -top-2 left-6 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ cart_items_count }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </a>
+                        <a href="{% url 'notifications' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700 relative">
+                            <i class="fas fa-bell w-6 h-6"></i>
+                            <span>Notifications</span>
+                            {% if unread_notifications > 0 %}
+                                <span class="absolute -top-2 left-6 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ unread_notifications }}</span>
+                            {% endif %}
+                        </a>
+                        <div class="space-y-2">
+                            <!-- Buyer Username -->
+                            <div class="flex items-center space-x-2 text-gray-700">
+                                {% if user.profile_picture %}
+                                    <img src="{{ user.profile_picture.url }}" alt="Profile" class="w-6 h-6 rounded-full object-cover">
+                                {% else %}
+                                    <i class="fas fa-user w-6 h-6"></i>
+                                {% endif %}
+                                <span class="font-medium">{{ user.username }}</span>
+                            </div>
+                            <a href="{% url 'buyer_profile' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700 pl-8">
+                                <i class="fas fa-user w-6 h-6"></i>
+                                <span>Profile</span>
+                            </a>
+                            <a href="{% url 'order_history' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700 pl-8">
+                                <i class="fas fa-list w-6 h-6"></i>
+                                <span>Orders</span>
+                            </a>
+                            <a href="{% url 'logout' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700 pl-8">
+                                <i class="fas fa-sign-out-alt w-6 h-6"></i>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    {% elif user.role == 'seller' %}
+                        <a href="{% url 'seller_notifications' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700 relative">
+                            <i class="fas fa-bell w-6 h-6"></i>
+                            <span>Notifications</span>
+                            {% if unread_notifications > 0 %}
+                                <span class="absolute -top-2 left-6 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ unread_notifications }}</span>
+                            {% endif %}
+                        </a>
+                        <a href="{% url 'seller_dashboard' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700">
+                            <i class="fas fa-tachometer-alt w-6 h-6"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="{% url 'logout' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700">
+                            <i class="fas fa-sign-out-alt w-6 h-6"></i>
+                            <span>Logout</span>
+                        </a>
+                        <div class="flex items-center space-x-2 text-gray-700">
+                            {% if user.profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="Profile" class="w-6 h-6 rounded-full object-cover">
+                            {% else %}
+                                <i class="fas fa-user w-6 h-6"></i>
+                            {% endif %}
+                            <span class="font-medium">{{ user.username }}</span>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <a href="{% url 'login' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700">
+                        <i class="fas fa-log-in-alt w-6 h-6"></i>
+                        <span>Login</span>
+                    </a>
+                    <a href="{% url 'register' %}" class="flex items-center space-x-2 text-gray-700 hover:text-blue-700">
+                        <i class="fas fa-user-plus w-6 h-6"></i>
+                        <span>Register</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <div class="container mx-auto mt-20 px-4">
+        {% block content %}{% endblock %}
+    </div>
+    {% block extra_js %}
+    <script>
+        const navToggle = document.getElementById('nav-toggle');
+        const mobileMenu = document.getElementById('mobile-menu');
+        navToggle.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Dropdown functionality for buyers only
+        const dropdownToggle = document.getElementById('dropdown-toggle');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        let dropdownOpen = false;
+
+        if (dropdownToggle && dropdownMenu) {
+            dropdownToggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                dropdownOpen = !dropdownOpen;
+                dropdownMenu.classList.toggle('hidden', !dropdownOpen);
+            });
+
+            document.addEventListener('click', (event) => {
+                if (dropdownOpen && !dropdownToggle.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                    dropdownMenu.classList.add('hidden');
+                    dropdownOpen = false;
+                }
+            });
+        }
+    </script>
+    {% endblock %}
+</body>
+</html>

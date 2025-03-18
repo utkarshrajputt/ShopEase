@@ -1,0 +1,464 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center bg-gradient-to-r from-blue-600 to-indigo-800 text-transparent bg-clip-text">
+            Seller Dashboard
+        </h1>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} text-center mb-6 rounded-lg p-4 shadow-md">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+            <!-- Monthly Sales Line Chart -->
+            <div class="bg-white rounded-xl shadow-lg p-6 animate-fade-in">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Monthly Sales (Last 6 Months)</h2>
+                <div class="relative h-64">
+                    <canvas id="salesChart" height="150"></canvas>
+                </div>
+            </div>
+            <!-- Order Status Pie Chart -->
+            <div class="bg-white rounded-xl shadow-lg p-6 animate-fade-in">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Order Status Distribution</h2>
+                <div class="relative h-64">
+                    <canvas id="statusChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Overview -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+                <h2 class="text-lg font-semibold text-gray-700">Total Sales</h2>
+                <p class="text-3xl font-bold text-green-600 mt-2">₹{{ total_sales|floatformat:2 }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+                <h2 class="text-lg font-semibold text-gray-700">Total Orders</h2>
+                <p class="text-3xl font-bold text-blue-600 mt-2">{{ orders.count }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+                <h2 class="text-lg font-semibold text-gray-700">Total Products</h2>
+                <p class="text-3xl font-bold text-purple-600 mt-2">{{ total_products }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+                <h2 class="text-lg font-semibold text-gray-700">Pending Orders</h2>
+                <p class="text-3xl font-bold text-yellow-600 mt-2">{{ pending_orders }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+                <h2 class="text-lg font-semibold text-gray-700">Revenue This Month</h2>
+                <p class="text-3xl font-bold text-teal-600 mt-2">₹{{ revenue_this_month|floatformat:2 }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+                <h2 class="text-lg font-semibold text-gray-700">Average Order Value</h2>
+                <p class="text-3xl font-bold text-indigo-600 mt-2">₹{{ average_order_value|floatformat:2 }}</p>
+            </div>
+        </div>
+        <!-- Recent Activity Section -->
+<div class="bg-white rounded-xl shadow-lg p-6 mb-10 animate-fade-in">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Recent Activity</h2>
+    {% if recent_activities %}
+        <ul class="space-y-4">
+            {% for activity in recent_activities %}
+                <li class="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
+                    <i class="fas fa-history text-blue-600 w-5 h-5"></i>
+                    <span class="text-sm text-gray-700">{{ activity.action }} - {{ activity.timestamp|timesince }} ago</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-center text-gray-500 py-4">No recent activity.</p>
+    {% endif %}
+</div>
+
+        <!-- Filter Section -->
+        <div class="bg-gradient-to-r from-blue-100 via-blue-200 to-indigo-300 rounded-xl shadow-lg p-6 mb-10">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Filter Orders</h2>
+            <form method="GET" id="filter-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {% csrf_token %}
+                <div class="flex items-center space-x-2">
+                    <label for="status" class="sr-only">Status</label>
+                    <i class="fas fa-filter text-gray-600 w-5 h-5 flex-shrink-0"></i>
+                    <select id="status" name="status" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
+                        <option value="">All</option>
+                        {% if orders %}
+                            {% for value, label in orders.0.STATUS_CHOICES %}
+                                <option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="pending">Pending</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="start_date" class="sr-only">Start Date</label>
+                    <i class="fas fa-calendar-alt text-gray-600 w-5 h-5 flex-shrink-0"></i>
+                    <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="end_date" class="sr-only">End Date</label>
+                    <i class="fas fa-calendar-alt text-gray-600 w-5 h-5 flex-shrink-0"></i>
+                    <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="buyer" class="sr-only">Buyer</label>
+                    <i class="fas fa-user text-gray-600 w-5 h-5 flex-shrink-0"></i>
+                    <input type="text" id="buyer" name="buyer" value="{{ buyer }}" placeholder="Search by buyer" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="order_id" class="sr-only">Order ID</label>
+                    <i class="fas fa-hashtag text-gray-600 w-5 h-5 flex-shrink-0"></i>
+                    <input type="text" id="order_id" name="order_id" value="{{ order_id }}" placeholder="Search by order ID" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
+                </div>
+                <!-- Reset Filters Button -->
+                <div class="col-span-1 sm:col-span-2 lg:col-span-5 text-center mt-4">
+                    <a href="{% url 'seller_dashboard' %}" class="inline-block bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition font-semibold text-sm">Reset Filters</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Orders Section with Toggle -->
+         
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-700">Orders</h2>
+                <div class="flex space-x-4">
+                    <a href="{% url 'export_orders_csv' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-semibold text-sm">Export to CSV</a>
+                    <button id="toggle-orders" class="toggle-button bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition text-sm font-semibold flex items-center">
+                        <i class="fas fa-chevron-down w-4 h-4 mr-1"></i>
+                        Toggle
+                    </button>
+                </div>
+            </div>
+            <div id="orders-content" class="transition-all duration-300">
+                {% if orders %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="p-4 font-semibold text-gray-700">Order ID</th>
+                                    <th class="p-4 font-semibold text-gray-700">Buyer</th>
+                                    <th class="p-4 font-semibold text-gray-700">Date</th>
+                                    <th class="p-4 font-semibold text-gray-700">Total</th>
+                                    <th class="p-4 font-semibold text-gray-700">Status</th>
+                                    <th class="p-4 font-semibold text-gray-700">Action</th>
+                                    <th class="p-4 font-semibold text-gray-700">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in orders_page_obj %}
+                                    <tr class="border-b hover:bg-gray-50 transition-colors">
+                                        <td class="p-4">{{ order.id }}</td>
+                                        <td class="p-4">{{ order.user.username }}</td>
+                                        <td class="p-4">{{ order.created_at|date:"M d, Y" }}</td>
+                                        <td class="p-4">₹{{ order.total_amount|floatformat:2 }}</td>
+                                        <td class="p-4 capitalize">
+                                            <span class="status px-2 py-1 rounded-full text-xs {% if order.status == 'pending' %}bg-yellow-100 text-yellow-800{% elif order.status == 'shipped' %}bg-blue-100 text-blue-800{% elif order.status == 'delivered' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}" data-order-id="{{ order.id }}">
+                                                {{ order.status }}
+                                            </span>
+                                        </td>
+                                        <td class="p-4">
+                                            <select class="status-select w-full p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-order-id="{{ order.id }}">
+                                                {% for value, label in order.STATUS_CHOICES %}
+                                                    <option value="{{ value }}" {% if value == order.status %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                        <td class="p-4">
+                                            <a href="{% url 'order_detail' order.id %}" class="inline-block bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition text-sm font-semibold">View Details</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination for orders -->
+                    <div class="mt-4 flex justify-center">
+                        {% if orders_page_obj.has_previous %}
+                            <a href="?orders_page={{ orders_page_obj.previous_page_number }}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">« Previous</a>
+                        {% endif %}
+                        <span class="px-3 py-1">Page {{ orders_page_obj.number }} of {{ orders_page_obj.paginator.num_pages }}</span>
+                        {% if orders_page_obj.has_next %}
+                            <a href="?orders_page={{ orders_page_obj.next_page_number }}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next »</a>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="text-center text-gray-600 py-4">No orders match your filters.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Products Section with Toggle -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6 animate-fade-in">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Your Products</h2>
+                <div class="flex space-x-4">
+                    <a href="{% url 'export_products_csv' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-semibold text-sm">Export to CSV</a>
+                    <a href="{% url 'add_product' %}" class="inline-block bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-semibold text-sm">Add Product</a>
+                    <button id="toggle-products" class="toggle-button bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition text-sm font-semibold flex items-center">
+                        <i class="fas fa-chevron-down w-4 h-4 mr-1"></i>
+                        Toggle
+                    </button>
+                </div>
+            </div>
+            <div id="products-content" class="transition-all duration-300">
+                {% if products_page_obj %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="p-4 font-semibold text-gray-700 border-b border-gray-200">Product</th>
+                                    <th class="p-4 font-semibold text-gray-700 border-b border-gray-200">Price</th>
+                                    <th class="p-4 font-semibold text-gray-700 border-b border-gray-200">Stock</th>
+                                    <th class="p-4 font-semibold text-gray-700 border-b border-gray-200">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in products_page_obj %}
+                                <tr class="border-b hover:bg-gray-50 transition-colors">
+                                    <td class="p-4">{{ product.name }}</td>
+                                    <td class="p-4">₹{{ product.price|floatformat:2 }}</td>
+                                    <td class="p-4 flex items-center {% if product.stock <= 5 %}text-red-600 font-semibold{% endif %}">
+                                        {{ product.stock }}
+                                        {% if product.stock <= 5 %}
+                                            <span class="ml-2 inline-block bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full">Low</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-4">
+                                        <a href="{% url 'edit_product' product.id %}" class="text-blue-600 hover:underline mr-2 flex items-center"><i class="fas fa-edit mr-1"></i> Edit</a>
+                                        <a href="{% url 'delete_product' product.id %}" class="text-red-600 hover:underline flex items-center"><i class="fas fa-trash mr-1"></i> Delete</a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="p-4 text-center text-gray-500">No products found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination for Products -->
+                    <div class="mt-6 flex justify-center items-center space-x-4">
+                        {% if products_page_obj.has_previous %}
+                            <a href="?products_page={{ products_page_obj.previous_page_number }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Previous</a>
+                        {% endif %}
+                        <span class="text-sm text-gray-600">Page {{ products_page_obj.number }} of {{ products_page_obj.paginator.num_pages }}</span>
+                        {% if products_page_obj.has_next %}
+                            <a href="?products_page={{ products_page_obj.next_page_number }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Next</a>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="text-center text-gray-500 py-4">No products available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Animation -->
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        // Function to get CSRF token from cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // Fetch sales data and render charts
+        fetch("{% url 'sales_data' %}")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Monthly Sales Line Chart
+                const salesCtx = document.getElementById('salesChart').getContext('2d');
+                new Chart(salesCtx, {
+                    type: 'line',
+                    data: {
+                        labels: data.sales.labels,
+                        datasets: [{
+                            label: 'Sales (₹)',
+                            data: data.sales.values,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Sales Amount (₹)',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 10
+                                    }
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Month',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 10
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Order Status Pie Chart
+                const statusCtx = document.getElementById('statusChart').getContext('2d');
+                new Chart(statusCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: data.status.labels,
+                        datasets: [{
+                            label: 'Order Status',
+                            data: data.status.values,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.7)',
+                                'rgba(54, 162, 235, 0.7)',
+                                'rgba(75, 192, 192, 0.7)',
+                                'rgba(255, 206, 86, 0.7)',
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(255, 206, 86, 1)',
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching sales data:', error));
+
+        // Status updates for orders
+        document.querySelectorAll('.status-select').forEach(select => {
+            select.addEventListener('click', (event) => {
+                event.stopPropagation();
+            });
+            select.addEventListener('change', function(event) {
+                event.stopPropagation();
+                const orderId = this.dataset.orderId;
+                const newStatus = this.value;
+                fetch(`{% url 'update_order_status' 0 %}`.replace('0', orderId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: `status=${encodeURIComponent(newStatus)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Status updated successfully!');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                        this.value = this.dataset.originalStatus || this.value;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    this.value = this.dataset.originalStatus || this.value;
+                });
+            });
+        });
+
+        // Filter form auto-submit
+        document.getElementById('filter-form').addEventListener('change', function(event) {
+            event.stopPropagation();
+            if (document.readyState === 'complete') {
+                this.submit();
+            }
+        });
+
+        // Toggle functionality for sections
+        document.getElementById('toggle-orders').addEventListener('click', function(event) {
+            event.stopPropagation();
+            const content = document.getElementById('orders-content');
+            content.classList.toggle('hidden');
+            this.querySelector('i').classList.toggle('fa-chevron-down');
+            this.querySelector('i').classList.toggle('fa-chevron-up');
+        });
+
+        document.getElementById('toggle-products').addEventListener('click', function(event) {
+            event.stopPropagation();
+            const content = document.getElementById('products-content');
+            content.classList.toggle('hidden');
+            this.querySelector('i').classList.toggle('fa-chevron-down');
+            this.querySelector('i').classList.toggle('fa-chevron-up');
+        });
+    </script>
+{% endblock %}

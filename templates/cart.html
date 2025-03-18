@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="py-10 max-w-6xl mx-auto px-4">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Your Cart</h1>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} text-center mb-6">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% if cart_items %}
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Cart Items -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div id="cart-items" class="space-y-6">
+                            {% for cart_item in cart_items %}
+                                <div class="flex items-center justify-between border-b pb-4" data-item-id="{{ cart_item.item.id }}">
+                                    <div class="flex items-center space-x-4">
+                                        {% if cart_item.item.product.image %}
+                                            <img src="{{ cart_item.item.product.image.url }}" alt="{{ cart_item.item.product.name }}" class="w-20 h-20 object-contain rounded-md">
+                                        {% else %}
+                                            <img src="https://images.unsplash.com/photo-1523275339254-cc177407725d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Placeholder" class="w-20 h-20 object-contain rounded-md">
+                                        {% endif %}
+                                        <div>
+                                            <h3 class="text-lg font-semibold text-gray-800">{{ cart_item.item.product.name }}</h3>
+                                            <p class="text-gray-600">₹{{ cart_item.item.product.price|floatformat:2 }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-4">
+                                        <div class="flex items-center border rounded-lg">
+                                            <button class="decrease-quantity px-3 py-1 text-gray-700 hover:bg-gray-100" data-url="{% url 'update_cart_quantity' cart_item.item.id 'decrease' %}">-</button>
+                                            <span class="quantity px-3 py-1 text-gray-800">{{ cart_item.item.quantity }}</span>
+                                            <button class="increase-quantity px-3 py-1 text-gray-700 hover:bg-gray-100" data-url="{% url 'update_cart_quantity' cart_item.item.id 'increase' %}">+</button>
+                                        </div>
+                                        <p class="item-total text-blue-700 font-bold">₹{{ cart_item.total|floatformat:2 }}</p>
+                                        <button class="remove-item text-red-600 hover:text-red-800" data-url="{% url 'remove_from_cart' cart_item.item.id %}">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-lg shadow-md p-6 sticky top-24">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Order Summary</h2>
+                        <div class="space-y-4">
+                            <div class="flex justify-between">
+                                <span class="text-gray-700">Subtotal</span>
+                                <span id="subtotal" class="text-gray-800 font-medium">₹{{ subtotal|floatformat:2 }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-700">Shipping</span>
+                                <span id="shipping" class="text-gray-800 font-medium">₹{{ shipping|floatformat:2 }}</span>
+                            </div>
+                            <div class="border-t pt-4 flex justify-between">
+                                <span class="text-gray-800 font-semibold">Total</span>
+                                <span id="total" class="text-blue-700 text-xl font-bold">₹{{ total|floatformat:2 }}</span>
+                            </div>
+                            <a href="{% url 'checkout' %}" class="block w-full bg-gradient-to-r from-blue-600 to-indigo-800 text-white py-3 rounded-lg text-center font-semibold hover:from-blue-700 hover:to-indigo-900 transition">Proceed to Checkout</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center">
+                <p class="text-gray-600 mb-4">Your cart is empty.</p>
+                <a href="{% url 'product_list' %}" class="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700">Shop Now</a>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}  <!-- Include the navbar script from base.html -->
+    <script>
+        document.querySelectorAll('.increase-quantity, .decrease-quantity').forEach(button => {
+            button.addEventListener('click', function() {
+                const url = this.getAttribute('data-url');
+                fetch(url, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const itemDiv = this.closest('[data-item-id]');
+                    itemDiv.querySelector('.quantity').textContent = data.quantity;
+                    itemDiv.querySelector('.item-total').textContent = `₹${data.item_total.toFixed(2)}`;
+                    document.getElementById('subtotal').textContent = `₹${data.subtotal.toFixed(2)}`;
+                    document.getElementById('shipping').textContent = `₹${data.shipping.toFixed(2)}`;
+                    document.getElementById('total').textContent = `₹${data.total.toFixed(2)}`;
+                });
+            });
+        });
+
+        document.querySelectorAll('.remove-item').forEach(button => {
+            button.addEventListener('click', function() {
+                const url = this.getAttribute('data-url');
+                fetch(url, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.removed) {
+                        this.closest('[data-item-id]').remove();
+                        document.getElementById('subtotal').textContent = `₹${data.subtotal.toFixed(2)}`;
+                        document.getElementById('shipping').textContent = `₹${data.shipping.toFixed(2)}`;
+                        document.getElementById('total').textContent = `₹${data.total.toFixed(2)}`;
+                        if (document.querySelectorAll('#cart-items > div').length === 0) {
+                            document.getElementById('cart-items').innerHTML = `
+                                <div class="text-center">
+                                    <p class="text-gray-600 mb-4">Your cart is empty.</p>
+                                    <a href="{% url 'product_list' %}" class="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700">Shop Now</a>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,124 @@
+/* Custom styles for ShopEase */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+.alert {
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.alert-success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.alert-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+h1, h2 {
+    color: #1e40af;
+}
+
+button {
+    transition: background-color 0.3s ease;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #1f2937;
+    font-size: 16px;
+    box-sizing: border-box;
+    height: 44px;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+select:focus {
+    outline: none;
+    border-color: #1e40af;
+    box-shadow: 0 0 5px rgba(30, 64, 175, 0.3);
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #4b5563;
+    font-weight: 500;
+}
+
+.form-field {
+    margin-bottom: 1rem;
+}
+
+/* Navbar-specific styles */
+nav {
+    transition: all 0.3s ease;
+}
+
+/* Mobile menu adjustments */
+@media (max-width: 768px) {
+    #mobile-menu {
+        position: fixed;
+        top: 60px; /* Adjust based on navbar height */
+        left: 0;
+        right: 0;
+        z-index: 40;
+        background-color: #ffffff;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Ensure form fields align with earlier styling */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.75rem; /* Matches p-3 */
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem; /* Matches rounded-lg */
+    background-color: #ffffff;
+    color: #1f2937;
+    font-size: 1rem; /* Matches 16px */
+    box-sizing: border-box;
+}
+
+input[type="file"] {
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background-color: #ffffff;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #1e40af;
+    box-shadow: 0 0 5px rgba(30, 64, 175, 0.3);
+}
+
+.fas, .far {
+    width: 1.5rem; /* Match the previous w-6 */
+    height: 1.5rem; /* Match the previous h-6 */
+}

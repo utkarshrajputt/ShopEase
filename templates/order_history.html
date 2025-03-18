@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="py-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Order History</h1>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} text-center mb-6 rounded-lg p-4 shadow-md">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% if orders %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="p-4 font-semibold text-gray-700">Order ID</th>
+                            <th class="p-4 font-semibold text-gray-700">Date</th>
+                            <th class="p-4 font-semibold text-gray-700">Total</th>
+                            <th class="p-4 font-semibold text-gray-700">Status</th>
+                            <th class="p-4 font-semibold text-gray-700">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                            <tr class="border-b hover:bg-gray-50 transition-colors">
+                                <td class="p-4">{{ order.id }}</td>
+                                <td class="p-4">{{ order.created_at|date:"M d, Y" }}</td>
+                                <td class="p-4">₹{{ order.total_amount|floatformat:2 }}</td>
+                                <td class="p-4 capitalize">
+                                    <span class="px-2 py-1 rounded-full text-xs {% if order.status == 'pending' %}bg-yellow-100 text-yellow-800{% elif order.status == 'shipped' %}bg-blue-100 text-blue-800{% elif order.status == 'delivered' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ order.status }}
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <a href="{% url 'order_detail' order.id %}" class="inline-block bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition text-sm font-semibold">View Details</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-gray-600 text-center py-4">You have no orders yet.</p>
+        {% endif %}
+
+        <div class="mt-6 text-center">
+            <a href="{% url 'product_list' %}" class="text-blue-600 hover:underline">Continue Shopping</a>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="py-12 bg-gradient-to-br from-gray-50 via-white to-indigo-50 min-h-screen" data-user='{% if request.user.is_authenticated %}{"isAuthenticated": true, "role": "{{ request.user.role }}", "id": "{{ request.user.id }}"}{% else %}{"isAuthenticated": false, "role": "", "id": ""}{% endif %}'>
+        <h1 class="text-4xl md:text-5xl font-extrabold text-center mb-10 text-gray-900 drop-shadow-md animate-fade-in">
+            Discover Our Products
+        </h1>
+
+        <!-- Filter Section -->
+        <div class="max-w-5xl mx-auto mb-10 p-6 bg-white/90 backdrop-blur-md rounded-xl shadow-xl border border-gray-100 transform transition-all hover:shadow-2xl">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input type="text" id="search" placeholder="Search products..." value="{{ query }}" class="p-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-300 placeholder-gray-400 bg-white text-gray-800">
+                <select id="category" class="p-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-300 bg-white text-gray-800">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.name }}" {% if selected_category == cat.name %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="number" id="min_price" value="{{ min_price }}" placeholder="Min Price (₹)" step="0.01" min="0" class="p-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-300 placeholder-gray-400 bg-white text-gray-800">
+                <input type="number" id="max_price" value="{{ max_price }}" placeholder="Max Price (₹)" step="0.01" min="0" class="p-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-300 placeholder-gray-400 bg-white text-gray-800">
+            </div>
+            <button id="clear-filters" class="mt-4 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-all duration-300">Clear Filters</button>
+        </div>
+
+        <!-- Products Grid -->
+        <div id="products-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto px-4">
+            {% for product in products %}
+                <a href="{% url 'product_detail' product.id %}" class="block">
+                    <div class="bg-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
+                        {% if product.image %}
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-56 object-contain rounded-lg mb-4 transition-opacity duration-300 hover:opacity-90" loading="lazy">
+                        {% else %}
+                            <img src="https://images.unsplash.com/photo-1523275339254-cc177407725d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" alt="Placeholder" class="w-full h-56 object-contain rounded-lg mb-4 transition-opacity duration-300 hover:opacity-90">
+                        {% endif %}
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2 line-clamp-2">{{ product.name }}</h3>
+                        <p class="text-gray-600 text-sm mb-3 line-clamp-3">{{ product.description|truncatewords:20 }}</p>
+                        <p class="text-indigo-600 font-bold text-lg mb-2">₹{{ product.price|floatformat:2 }}</p>
+                        <p class="text-gray-700 text-sm mb-2">Stock: {{ product.stock }}</p>
+                        <div class="flex items-center mb-3">
+                            {% if product.avg_rating %}
+                                <div class="flex space-x-1">
+                                    {% for i in "12345"|make_list %}
+                                        {% if product.avg_rating >= forloop.counter %}
+                                            <span class="text-yellow-400 text-lg">★</span>
+                                        {% else %}
+                                            <span class="text-gray-300 text-lg">★</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <span class="ml-2 text-gray-500 text-xs">({{ product.review_count }} review{{ product.review_count|pluralize }})</span>
+                            {% else %}
+                                <span class="text-gray-500 text-sm">No reviews yet</span>
+                            {% endif %}
+                        </div>
+                        {% if request.user.is_authenticated and request.user.role == 'buyer' %}
+                            <a href="{% url 'add_to_cart' product.id %}" class="cart-btn block w-full text-center bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:ring-4 focus:ring-green-300 relative group" onclick="event.stopPropagation();">
+                                <i class="fas fa-cart-plus mr-2"></i>Add to Cart
+                                <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block px-3 py-1 text-xs text-white bg-gray-800 rounded-lg">Add this product to your cart</span>
+                            </a>
+                            <a href="{% url 'add_review' product.id %}" class="review-btn block w-full text-center mt-2 border-2 border-transparent bg-clip-border bg-gradient-to-r from-indigo-500 to-purple-500 text-indigo-700 py-1.5 rounded-lg font-medium transition-all duration-300 hover:text-purple-700 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600 hover:shadow-md" onclick="event.stopPropagation();">
+                                <i class="fas fa-star mr-2"></i>Write a Review
+                            </a>
+                        {% endif %}
+                    </div>
+                </a>
+            {% empty %}
+                <p class="text-center text-gray-600 col-span-full text-xl py-8">No products available at the moment.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+            <div class="mt-10 flex justify-center space-x-4">
+                {% if page_obj.has_previous %}
+                    <button class="pagination-btn bg-indigo-600 text-white py-2 px-5 rounded-lg hover:bg-indigo-700 transition-all duration-300" data-page="{{ page_obj.previous_page_number }}">Previous</button>
+                {% else %}
+                    <button class="bg-gray-300 text-gray-600 py-2 px-5 rounded-lg cursor-not-allowed" disabled>Previous</button>
+                {% endif %}
+                <span class="py-2 px-5 text-gray-800 font-medium">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <button class="pagination-btn bg-indigo-600 text-white py-2 px-5 rounded-lg hover:bg-indigo-700 transition-all duration-300" data-page="{{ page_obj.next_page_number }}">Next</button>
+                {% else %}
+                    <button class="bg-gray-300 text-gray-600 py-2 px-5 rounded-lg cursor-not-allowed" disabled>Next</button>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Custom Animation -->
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        .cart-btn i, .review-btn i {
+            font-size: 1rem;
+            vertical-align: middle;
+        }
+        .group:hover .group-hover\:block {
+            display: block;
+        }
+    </style>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script>
+        // Get user data from data attribute
+        const userData = JSON.parse(document.querySelector('div[data-user]').dataset.user);
+
+        document.querySelectorAll('.cart-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adding...';
+                setTimeout(() => {
+                    window.location.href = btn.href;
+                }, 500);
+            });
+        });
+
+        document.getElementById('clear-filters').addEventListener('click', () => {
+            document.getElementById('search').value = '';
+            document.getElementById('category').value = '';
+            document.getElementById('min_price').value = '';
+            document.getElementById('max_price').value = '';
+            fetchProducts(1);
+        });
+
+        // Real-time filtering with debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        function fetchProducts(page = 1) {
+            const grid = document.getElementById('products-grid');
+            grid.innerHTML = '<div class="text-center text-gray-600 col-span-full text-xl py-8">Loading...</div>';
+
+            const query = document.getElementById('search').value;
+            const category = document.getElementById('category').value;
+            const minPrice = document.getElementById('min_price').value;
+            const maxPrice = document.getElementById('max_price').value;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+            fetch(`/products/json/?q=${encodeURIComponent(query || '')}&category=${encodeURIComponent(category || '')}&min_price=${encodeURIComponent(minPrice || '')}&max_price=${encodeURIComponent(maxPrice || '')}&page=${page}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        console.error('Fetch failed:', response.status, response.statusText);
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Received data:', data);
+                    grid.innerHTML = '';
+                    if (data.products.length === 0) {
+                        grid.innerHTML = '<p class="text-center text-gray-600 col-span-full text-xl py-8">No products available at the moment.</p>';
+                    } else {
+                        data.products.forEach(product => {
+                            const div = document.createElement('div');
+                            div.innerHTML = `
+                                <a href="/product/${product.id}/" class="block">
+                                    <div class="bg-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
+                                        <img src="${product.image || 'https://images.unsplash.com/photo-1523275339254-cc177407725d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'}" alt="${product.name}" class="w-full h-56 object-contain rounded-lg mb-4 transition-opacity duration-300 hover:opacity-90">
+                                        <h3 class="text-xl font-semibold text-gray-900 mb-2 line-clamp-2">${product.name}</h3>
+                                        <p class="text-gray-600 text-sm mb-3 line-clamp-3">${product.description || ''}</p>
+                                        <p class="text-indigo-600 font-bold text-lg mb-2">₹${product.price.toFixed(2)}</p>
+                                        <p class="text-gray-700 text-sm mb-2">Stock: ${product.stock}</p>
+                                        <div class="flex items-center mb-3">
+                                            ${product.avg_rating ? 
+                                                `<div class="flex space-x-1">` + 
+                                                Array(5).fill('').map((_, i) => 
+                                                    i < Math.floor(product.avg_rating) ? 
+                                                        '<span class="text-yellow-400 text-lg">★</span>' : 
+                                                        '<span class="text-gray-300 text-lg">★</span>'
+                                                ).join('') + 
+                                                `</div><span class="ml-2 text-gray-500 text-xs">(${product.review_count} review${product.review_count !== 1 ? 's' : ''})</span>` : 
+                                                `<span class="text-gray-500 text-sm">No reviews yet</span>`}
+                                        </div>
+                                        ${userData.isAuthenticated && userData.role === 'buyer' ? `
+                                            <a href="/cart/add/${product.id}/" class="cart-btn block w-full text-center bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:ring-4 focus:ring-green-300 relative group" onclick="event.stopPropagation();">
+                                                <i class="fas fa-cart-plus mr-2"></i>Add to Cart
+                                                <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block px-3 py-1 text-xs text-white bg-gray-800 rounded-lg">Add this product to your cart</span>
+                                            </a>
+                                            <a href="/review/add/${product.id}/" class="review-btn block w-full text-center mt-2 border-2 border-transparent bg-clip-border bg-gradient-to-r from-indigo-500 to-purple-500 text-indigo-700 py-1.5 rounded-lg font-medium transition-all duration-300 hover:text-purple-700 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600 hover:shadow-md" onclick="event.stopPropagation();">
+                                                <i class="fas fa-star mr-2"></i>Write a Review
+                                            </a>` : ''}
+                                    </div>
+                                </a>
+                            `;
+                            grid.appendChild(div);
+                        });
+                    }
+
+                    // Update pagination
+                    const pagination = document.querySelector('.mt-10');
+                    if (pagination) {
+                        pagination.innerHTML = '';
+                        const prevBtn = document.createElement('button');
+                        prevBtn.textContent = 'Previous';
+                        prevBtn.className = data.has_previous ? 
+                            'pagination-btn bg-indigo-600 text-white py-2 px-5 rounded-lg hover:bg-indigo-700 transition-all duration-300' : 
+                            'bg-gray-300 text-gray-600 py-2 px-5 rounded-lg cursor-not-allowed';
+                        if (data.has_previous) prevBtn.dataset.page = data.page - 1;
+
+                        const pageInfo = document.createElement('span');
+                        pageInfo.textContent = `Page ${data.page} of ${data.num_pages}`;
+                        pageInfo.className = 'py-2 px-5 text-gray-800 font-medium';
+
+                        const nextBtn = document.createElement('button');
+                        nextBtn.textContent = 'Next';
+                        nextBtn.className = data.has_next ? 
+                            'pagination-btn bg-indigo-600 text-white py-2 px-5 rounded-lg hover:bg-indigo-700 transition-all duration-300' : 
+                            'bg-gray-300 text-gray-600 py-2 px-5 rounded-lg cursor-not-allowed';
+                        if (data.has_next) nextBtn.dataset.page = data.page + 1;
+
+                        pagination.append(prevBtn, pageInfo, nextBtn);
+
+                        document.querySelectorAll('.pagination-btn').forEach(btn => {
+                            btn.addEventListener('click', () => fetchProducts(btn.dataset.page));
+                        });
+                    }
+
+                    // Reattach event listeners for cart buttons after DOM update
+                    document.querySelectorAll('.cart-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adding...';
+                            setTimeout(() => {
+                                window.location.href = btn.href;
+                            }, 500);
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    const grid = document.getElementById('products-grid');
+                    grid.innerHTML = '<p class="text-center text-red-600 col-span-full text-xl py-8">Error loading products. Please try again or log in if required.</p>';
+                });
+        }
+
+        // Event listeners for inputs and initial load
+        const inputs = ['search', 'category', 'min_price', 'max_price'];
+        inputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('input', debounce(() => fetchProducts(1), 300));
+            }
+        });
+
+        // Initial load
+        fetchProducts(1);
+    </script>
+{% endblock %}

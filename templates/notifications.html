@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block content %}
+    <div class="py-12">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">Notifications</h1>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} text-center mb-6 rounded-lg p-4 shadow-md">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% if notifications %}
+            <div class="max-w-3xl mx-auto">
+                <!-- Clear All Button -->
+                <div class="flex justify-end mb-4">
+                    <form method="post" action="{% url 'clear_notifications' %}" onsubmit="return confirm('Are you sure you want to clear all notifications?');">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition">Clear All</button>
+                    </form>
+                </div>
+                <div class="space-y-4">
+                    {% for notification in notifications %}
+                        <div class="bg-white p-6 rounded-lg shadow-md {% if not notification.is_read %}bg-blue-50{% endif %}">
+                            <div class="flex items-center justify-between">
+                                <p class="text-gray-700 text-lg">
+                                    {% if "has been shipped" in notification.message or "has been delivered" in notification.message or "has been cancelled" in notification.message %}
+                                        <span class="text-indigo-600 font-semibold">[Order Update]</span>
+                                    {% elif "Share your feedback" in notification.message %}
+                                        <span class="text-green-600 font-semibold">[Review Request]</span>
+                                    {% else %}
+                                        <span class="text-blue-600 font-semibold">[General]</span>
+                                    {% endif %}
+                                    {{ notification.message }}
+                                </p>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2">Created: {{ notification.created_at|naturaltime }}</p>
+                            {% if notification.related_order %}
+                                <a href="{% url 'order_detail' notification.related_order.id %}" class="text-indigo-600 hover:text-indigo-800 mt-2 inline-block">View Order</a>
+                            {% endif %}
+                            {% if not notification.is_read %}
+                                <form method="post" action="{% url 'mark_as_read' notification.id %}" class="inline-block mt-2 ml-4">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-sm text-gray-600 hover:text-gray-800">Mark as Read</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <p class="text-gray-600 text-center">No notifications yet.</p>
+        {% endif %}
+    </div>
+{% endblock %}

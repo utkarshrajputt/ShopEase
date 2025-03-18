@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="max-w-2xl mx-auto py-10">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Add New Product</h1>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} text-center mb-6">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        <form method="post" enctype="multipart/form-data" class="bg-white p-6 rounded-lg shadow-md space-y-6">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-6">
+                    <div>
+                        <label for="{{ form.name.id_for_label }}" class="block text-gray-700 font-medium mb-2">Product Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <p class="text-red-500 text-sm mt-1">{{ form.name.errors }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.price.id_for_label }}" class="block text-gray-700 font-medium mb-2">Price (₹)</label>
+                        {{ form.price }}
+                        {% if form.price.errors %}
+                            <p class="text-red-500 text-sm mt-1">{{ form.price.errors }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.stock.id_for_label }}" class="block text-gray-700 font-medium mb-2">Stock Quantity</label>
+                        {{ form.stock }}
+                        {% if form.stock.errors %}
+                            <p class="text-red-500 text-sm mt-1">{{ form.stock.errors }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div>
+                        <label for="{{ form.category.id_for_label }}" class="block text-gray-700 font-medium mb-2">Category</label>
+                        {{ form.category }}
+                        {% if form.category.errors %}
+                            <p class="text-red-500 text-sm mt-1">{{ form.category.errors }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.image.id_for_label }}" class="block text-gray-700 font-medium mb-2">Product Image</label>
+                        {{ form.image }}
+                        <div id="image-preview" class="mt-2 hidden">
+                            <img id="preview-img" src="#" alt="Image Preview" class="w-full h-40 object-cover rounded-md">
+                        </div>
+                        {% if form.image.errors %}
+                            <p class="text-red-500 text-sm mt-1">{{ form.image.errors }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label for="{{ form.description.id_for_label }}" class="block text-gray-700 font-medium mb-2">Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <p class="text-red-500 text-sm mt-1">{{ form.description.errors }}</p>
+                {% endif %}
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-300 font-semibold">Add Product</button>
+        </form>
+        <p class="mt-4 text-center text-gray-600">
+            <a href="{% url 'seller_dashboard' %}" class="text-blue-500 hover:underline">Back to Dashboard</a>
+        </p>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        const imageInput = document.querySelector('#{{ form.image.id_for_label }}');
+        const imagePreview = document.querySelector('#image-preview');
+        const previewImg = document.querySelector('#preview-img');
+
+        imageInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.classList.add('hidden');
+            }
+        });
+    </script>
+{% endblock %}

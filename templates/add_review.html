@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="py-10 max-w-4xl mx-auto px-4">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Review {{ product.name }}</h1>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} text-center mb-6">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            {% if has_purchased %}
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="block text-gray-700 font-medium mb-2">Rating</label>
+                        <div class="star-rating flex space-x-1">
+                            {% for i in "54321" %}
+                                <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" class="hidden" required>
+                                <label for="star{{ i }}" class="cursor-pointer text-2xl text-gray-300 hover:text-yellow-400 {% if i <= review.rating|default:0 %}text-yellow-400{% endif %}" data-value="{{ i }}">★</label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="comment" class="block text-gray-700 font-medium mb-2">Comment</label>
+                        <textarea id="comment" name="comment" rows="4" class="w-full p-3 border rounded-lg focus:border-blue-500 focus:outline-none"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Submit Review</button>
+                </form>
+            {% else %}
+                <p class="text-red-600 text-center">You have not purchased this product yet, so you cannot leave a review.</p>
+                <a href="{% url 'product_list' %}" class="mt-4 block text-center text-blue-600 hover:underline">Back to Products</a>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script>
+        document.querySelectorAll('.star-rating label').forEach(star => {
+            star.addEventListener('click', function() {
+                const value = this.getAttribute('data-value');
+                document.querySelectorAll('.star-rating label').forEach(s => {
+                    s.classList.remove('text-yellow-400');
+                    s.classList.add('text-gray-300');
+                    if (parseInt(s.getAttribute('data-value')) <= value) {
+                        s.classList.add('text-yellow-400');
+                        s.classList.remove('text-gray-300');
+                    }
+                });
+            });
+            star.addEventListener('mouseover', function() {
+                const value = this.getAttribute('data-value');
+                document.querySelectorAll('.star-rating label').forEach(s => {
+                    if (parseInt(s.getAttribute('data-value')) <= value) {
+                        s.classList.add('text-yellow-400');
+                        s.classList.remove('text-gray-300');
+                    }
+                });
+            });
+            star.addEventListener('mouseout', function() {
+                const selected = document.querySelector('.star-rating input:checked');
+                const selectedValue = selected ? selected.value : 0;
+                document.querySelectorAll('.star-rating label').forEach(s => {
+                    s.classList.remove('text-yellow-400');
+                    s.classList.add('text-gray-300');
+                    if (parseInt(s.getAttribute('data-value')) <= selectedValue) {
+                        s.classList.add('text-yellow-400');
+                        s.classList.remove('text-gray-300');
+                    }
+                });
+            });
+        });
+    </script>
+{% endblock %}
