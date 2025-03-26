@@ -1,35 +1,46 @@
 {% extends 'base.html' %}
 {% block content %}
-    <div class="py-10 max-w-4xl mx-auto px-4">
-        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Review {{ product.name }}</h1>
-        <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="container mx-auto px-4 py-16 max-w-2xl">
+        <h1 class="text-4xl font-bold text-gray-900 mb-8 text-center tracking-tight">
+            {% if review %}Edit Your Review{% else %}Review{% endif %} {{ product.name }}
+        </h1>
+        <div class="bg-white rounded-2xl shadow-lg p-8 backdrop-blur-sm bg-opacity-90">
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} text-center mb-6">{{ message }}</div>
+                    <div class="alert alert-{{ message.tags }} text-center mb-6 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ message }}
+                    </div>
                 {% endfor %}
             {% endif %}
 
             {% if has_purchased %}
                 <form method="POST">
                     {% csrf_token %}
-                    <div class="mb-4">
-                        <label class="block text-gray-700 font-medium mb-2">Rating</label>
-                        <div class="star-rating flex space-x-1">
+                    <!-- Add hidden input for order_id -->
+                    {% if order_id %}
+                        <input type="hidden" name="order_id" value="{{ order_id }}">
+                    {% endif %}
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">Rating</label>
+                        <div class="star-rating flex space-x-1 justify-center">
                             {% for i in "54321" %}
-                                <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" class="hidden" required>
-                                <label for="star{{ i }}" class="cursor-pointer text-2xl text-gray-300 hover:text-yellow-400 {% if i <= review.rating|default:0 %}text-yellow-400{% endif %}" data-value="{{ i }}">★</label>
+                                <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" class="hidden" {% if i == review.rating|default_if_none:"" %}checked{% endif %} required>
+                                <label for="star{{ i }}" class="cursor-pointer text-3xl text-gray-300 hover:text-yellow-400 transition-colors duration-200 {% if i <= review.rating|default:0 %}text-yellow-400{% endif %}" data-value="{{ i }}">★</label>
                             {% endfor %}
                         </div>
                     </div>
-                    <div class="mb-4">
-                        <label for="comment" class="block text-gray-700 font-medium mb-2">Comment</label>
-                        <textarea id="comment" name="comment" rows="4" class="w-full p-3 border rounded-lg focus:border-blue-500 focus:outline-none"></textarea>
+                    <div class="mb-6 relative">
+                        <label for="comment" class="block text-gray-700 font-semibold mb-2">Comment</label>
+                        <textarea id="comment" name="comment" rows="5" class="w-full p-3 border rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all duration-200 placeholder-gray-500" placeholder="Share your thoughts about the product..." maxlength="500">{{ review.comment|default:"" }}</textarea>
+                        <p class="text-gray-500 text-sm absolute right-3 bottom-3"><span id="char-count">0</span>/500</p>
                     </div>
-                    <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Submit Review</button>
+                    <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl font-semibold text-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-[1.02]">
+                        Submit Review
+                    </button>
                 </form>
             {% else %}
-                <p class="text-red-600 text-center">You have not purchased this product yet, so you cannot leave a review.</p>
-                <a href="{% url 'product_list' %}" class="mt-4 block text-center text-blue-600 hover:underline">Back to Products</a>
+                <p class="text-red-600 text-center font-medium mb-4">You have not purchased this product yet, so you cannot leave a review.</p>
+                <a href="{% url 'product_list' %}" class="block text-center bg-gray-200 text-gray-800 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-all duration-300">Back to Products</a>
             {% endif %}
         </div>
     </div>
@@ -38,6 +49,14 @@
 {% block extra_js %}
     {{ block.super }}
     <script>
+        const commentTextarea = document.getElementById('comment');
+        const charCount = document.getElementById('char-count');
+        commentTextarea.addEventListener('input', () => {
+            charCount.textContent = commentTextarea.value.length;
+        });
+        // Set initial count
+        charCount.textContent = commentTextarea.value.length;
+
         document.querySelectorAll('.star-rating label').forEach(star => {
             star.addEventListener('click', function() {
                 const value = this.getAttribute('data-value');
@@ -73,4 +92,26 @@
             });
         });
     </script>
+{% endblock %}
+
+{% block extra_css %}
+    <style>
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Form animations */
+        form {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .star-rating label:hover {
+            transform: scale(1.2);
+        }
+    </style>
 {% endblock %}

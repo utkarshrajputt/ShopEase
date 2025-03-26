@@ -45,7 +45,12 @@ urlpatterns = [
     # New product detail URL
     path('product/<int:product_id>/', views.product_detail, name='product_detail'),
     path('chatbot/', views.chatbot, name='chatbot'),
+    path('seller/update-order-status/<int:order_id>/', views.update_order_status, name='update_order_status'),
+    path('create-razorpay-order/', views.create_razorpay_order, name='create_razorpay_order'),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

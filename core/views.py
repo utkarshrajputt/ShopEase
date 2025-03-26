@@ -111,14 +111,14 @@ def home(request):
 # myapp/views.py
 def product_detail(request, product_id):
     product = get_object_or_404(Product, id=product_id)
-    reviews = product.review_set.all().order_by('-created_at')
+    reviews = Review.objects.filter(product=product)
     review_exists = False
     if request.user.is_authenticated and request.user.role == 'buyer':
-        review_exists = Review.objects.filter(user=request.user, product=product).exists()
+        review_exists = Review.objects.filter(product=product, user=request.user).exists()
     context = {
         'product': product,
         'reviews': reviews,
-        'review_exists': review_exists,
+        'review_exists': review_exists
     }
     return render(request, 'product_detail.html', context)
 
@@ -391,6 +391,15 @@ def remove_from_cart(request, cart_item_id):
         })
     return redirect('view_cart')
 
+# Add these imports at the top of views.py
+import razorpay
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+
+# Initialize Razorpay client (you can add this at the top of views.py or in settings.py)
+razorpay_client = razorpay.Client(auth=("rzp_test_zx2S7Ke0lkJO2J", "8TSDZqbzX1A9LABvuaw7K4Is"))
+
+# Update the checkout view
 @login_required
 def checkout(request):
     if request.user.role != 'buyer':
@@ -419,6 +428,7 @@ def checkout(request):
     total = subtotal + shipping
 
     if request.method == 'POST':
+        payment_method = request.POST.get('payment_method', '').strip()
         shipping_address = request.POST.get('shipping_address', '').strip()
         
         # Validate shipping address
@@ -439,34 +449,39 @@ def checkout(request):
                 'total': total,
             })
 
-        # Create order
-        order = Order.objects.create(
-            user=request.user,
-            total_amount=total,
-            shipping_address=shipping_address,
-            payment_method='Cash on Delivery',
-            status='pending'
-        )
-        for cart_item in cart_items_with_totals:
-            OrderItem.objects.create(
-                order=order,
-                product=cart_item['item'].product,
-                quantity=cart_item['item'].quantity,
-                price=cart_item['total']
+        if payment_method == "Cash on Delivery":
+            # Create order for Cash on Delivery
+            order = Order.objects.create(
+                user=request.user,
+                total_amount=total,
+                shipping_address=shipping_address,
+                payment_method='Cash on Delivery',
+                status='pending'
             )
-            product = cart_item['item'].product
-            product.stock -= cart_item['item'].quantity
-            product.save()
-            # Notify the seller of the new order
-            Notification.objects.create(
-                user=product.seller,
-                message=f"A new order #{order.id} has been placed for your product: {product.name}.",
-                related_order=order
-            )
-        
-        cart.items.all().delete()
-        messages.success(request, 'Order placed successfully!')
-        return redirect('order_confirmation', order_id=order.id)
+            for cart_item in cart_items_with_totals:
+                OrderItem.objects.create(
+                    order=order,
+                    product=cart_item['item'].product,
+                    quantity=cart_item['item'].quantity,
+                    price=cart_item['total']
+                )
+                product = cart_item['item'].product
+                product.stock -= cart_item['item'].quantity
+                product.save()
+                # Notify the seller of the new order
+                Notification.objects.create(
+                    user=product.seller,
+                    message=f"A new order #{order.id} has been placed for your product: {product.name}.",
+                    related_order=order
+                )
+            
+            cart.items.all().delete()
+            messages.success(request, 'Order placed successfully!')
+            return redirect('order_confirmation', order_id=order.id)
+        else:
+            # For Pay Online, we handle it via AJAX in create_razorpay_order
+            messages.error(request, 'Invalid payment method.')
+            return redirect('checkout')
     
     context = {
         'cart_items': cart_items_with_totals,
@@ -474,8 +489,151 @@ def checkout(request):
         'shipping': shipping,
         'total': total,
         'default_shipping_address': request.user.address if request.user.address else '',
+        'razorpay_key_id': "rzp_test_zx257Ke0lk0J02",  # Pass the key_id to the template
     }
     return render(request, 'checkout.html', context)
+
+from decimal import Decimal  # Add this import at the top of views.py
+
+@login_required
+def create_razorpay_order(request):
+    if request.user.role != 'buyer':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+    
+    try:
+        # Parse the request body
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error: {str(e)}")
+            return JsonResponse({'error': 'Invalid request data. Check your input.'}, status=400)
+
+        shipping_address = data.get('shipping_address', '').strip()
+        # Convert total to Decimal instead of float
+        total = Decimal(str(data.get('total', '0')))  # Use str() to handle float input safely
+
+        if not shipping_address or len(shipping_address) < 10:
+            return JsonResponse({'error': 'Shipping address must be at least 10 characters long.'}, status=400)
+
+        # Validate total
+        if total <= 0:
+            logger.error(f"Invalid total amount: {total}")
+            return JsonResponse({'error': 'Total amount must be greater than 0.'}, status=400)
+
+        # Create the order in the database
+        try:
+            cart = Cart.objects.get(user=request.user)
+        except Cart.DoesNotExist:
+            logger.error(f"Cart not found for user: {request.user.username}")
+            return JsonResponse({'error': 'Cart not found. Add items to your cart first.'}, status=400)
+
+        cart_items = cart.items.all()
+        if not cart_items:
+            logger.error(f"Cart is empty for user: {request.user.username}")
+            return JsonResponse({'error': 'Your cart is empty.'}, status=400)
+
+        # Check stock availability
+        for item in cart_items:
+            if item.quantity > item.product.stock:
+                logger.error(f"Stock issue: {item.product.name} has {item.product.stock} but {item.quantity} requested")
+                return JsonResponse({'error': f'Sorry, only {item.product.stock} of {item.product.name} left in stock.'}, status=400)
+
+        # Pre-calculate totals (for consistency)
+        cart_items_with_totals = [
+            {'item': item, 'total': item.quantity * item.product.price}
+            for item in cart_items
+        ]
+        subtotal = sum(item['total'] for item in cart_items_with_totals)
+        shipping = Decimal('50') if subtotal > 0 else Decimal('0')  # Ensure shipping is also a Decimal
+        total_calculated = subtotal + shipping
+
+        # Log the totals for debugging
+        logger.debug(f"Calculated total: {total_calculated}, Received total: {total}")
+
+        # Now both total_calculated and total are Decimals, so this comparison will work
+        if abs(total_calculated - total) > Decimal('0.01'):  # Allow for minor differences
+            logger.error(f"Total mismatch: calculated {total_calculated}, received {total}")
+            return JsonResponse({'error': 'Total amount mismatch.'}, status=400)
+
+        # Validate Razorpay amount (must be at least ₹1)
+        amount_in_paise = int(total * 100)
+        if amount_in_paise < 100:
+            logger.error(f"Razorpay amount too low: {amount_in_paise} paise (minimum 100 paise)")
+            return JsonResponse({'error': 'Order amount must be at least ₹1.'}, status=400)
+
+        # Create the order
+        try:
+            order = Order.objects.create(
+                user=request.user,
+                total_amount=total,
+                shipping_address=shipping_address,
+                payment_method='Online Payment',
+                status='pending'
+            )
+        except Exception as e:
+            logger.error(f"Failed to create Order: {str(e)}")
+            return JsonResponse({'error': 'Failed to create order in database.'}, status=500)
+
+        try:
+            for cart_item in cart_items_with_totals:
+                OrderItem.objects.create(
+                    order=order,
+                    product=cart_item['item'].product,
+                    quantity=cart_item['item'].quantity,
+                    price=cart_item['total']
+                )
+                product = cart_item['item'].product
+                product.stock -= cart_item['item'].quantity
+                product.save()
+                # Notify the seller of the new order
+                Notification.objects.create(
+                    user=product.seller,
+                    message=f"A new order #{order.id} has been placed for your product: {product.name}.",
+                    related_order=order
+                )
+        except Exception as e:
+            logger.error(f"Failed to create OrderItems or update stock: {str(e)}")
+            # Roll back the order if OrderItems creation fails
+            order.delete()
+            return JsonResponse({'error': 'Failed to process order items.'}, status=500)
+
+        # Clear the cart
+        try:
+            cart.items.all().delete()
+        except Exception as e:
+            logger.error(f"Failed to clear cart: {str(e)}")
+            # Not critical, but log it
+            pass
+
+        # Create Razorpay order
+        try:
+            razorpay_order = razorpay_client.order.create({
+                "amount": amount_in_paise,
+                "currency": "INR",
+                "payment_capture": 1  # Auto-capture payment
+            })
+        except razorpay.errors.BadRequestError as e:
+            logger.error(f"Razorpay BadRequestError: {str(e)}")
+            # Roll back the order if Razorpay fails
+            order.delete()
+            return JsonResponse({'error': f'Razorpay error: {str(e)}'}, status=500)
+        except Exception as e:
+            logger.error(f"Razorpay general error: {str(e)}")
+            # Roll back the order if Razorpay fails
+            order.delete()
+            return JsonResponse({'error': 'Failed to create Razorpay order.'}, status=500)
+
+        return JsonResponse({
+            'razorpay_order_id': razorpay_order['id'],
+            'amount': amount_in_paise,
+            'order_id': order.id,  # Pass the Django order ID for redirection
+        })
+    except Exception as e:
+        logger.error(f"Unexpected error in create_razorpay_order: {str(e)}")
+        return JsonResponse({'error': 'Failed to create order. Try again.'}, status=500)
 
 @login_required
 def seller_notifications(request):
@@ -646,17 +804,22 @@ def order_detail(request, order_id):
         return redirect('home')
 
     order_items = order.items.all()
-    items_with_totals = [
-        {'item': item, 'total': item.quantity * item.price}
+    # Precompute totals and review status for each item
+    items_with_details = [
+        {
+            'item': item,
+            'total': item.quantity * item.price,
+            'has_reviewed': item.product.review_set.filter(user=request.user).exists() if request.user.role == 'buyer' else False
+        }
         for item in order_items
     ]
-    subtotal = sum(item['total'] for item in items_with_totals)
+    subtotal = sum(item['total'] for item in items_with_details)
     shipping = 50 if subtotal > 0 else 0
     total = subtotal + shipping
 
     context = {
         'order': order,
-        'order_items': items_with_totals,
+        'order_items': items_with_details,
         'subtotal': subtotal,
         'shipping': shipping,
         'total': total,
@@ -784,10 +947,18 @@ def seller_profile(request):
         return redirect('seller_profile')
     return render(request, 'seller_profile.html', {'profile': profile})
 
+import logging
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.decorators import login_required
-from .models import Order, Notification
+from .models import Order, Notification, SellerActivity
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def update_order_status(request, order_id):
@@ -836,15 +1007,64 @@ def update_order_status(request, order_id):
                 action=f"Updated order #{order_id} status to {new_status}"
             )
 
-            # Return success response
-            return JsonResponse({'success': True, 'status': new_status})
+            # Send email to buyer about the status update
+            email_sent = False
+            if order.user.email:  # Check if the buyer has an email
+                order_url = request.build_absolute_uri(reverse('order_detail', kwargs={'order_id': order.id}))
+                plain_message = (
+                    f'Your ShopEase order (ID: {order.id}) status has been updated.\n\n'
+                    f'Order Details:\n'
+                    f'Order ID: #{order.id}\n'
+                    f'New Status: {order.status}\n'
+                    f'Updated At: {timezone.now()}\n\n'
+                    f'View your order here: {order_url}\n\n'
+                    f'Thank you for shopping with us!'
+                )
+                html_message = render_to_string('emails/order_status_update.html', {
+                    'order_id': order.id,
+                    'status': order.status,
+                    'updated_at': timezone.now(),
+                    'order_url': order_url,
+                    'user_name': order.user.username,
+                    'site_name': 'ShopEase',
+                })
+
+                # Send email
+                email_subject = f'ShopEase Order Status Update - #{order.id}'
+                email_from = settings.DEFAULT_FROM_EMAIL
+                email = EmailMultiAlternatives(
+                    subject=email_subject,
+                    body=plain_message,
+                    from_email=email_from,
+                    to=[order.user.email],
+                )
+                email.attach_alternative(html_message, 'text/html')
+                try:
+                    email.send()
+                    logger.info(f"Status update email sent to {order.user.email} for order #{order.id}")
+                    email_sent = True
+                except Exception as e:
+                    logger.error(f"Failed to send status update email for order #{order.id} to {order.user.email}: {str(e)}")
+            else:
+                logger.warning(f"No email address found for user {order.user.username} (order #{order.id}). Please update the user's email.")
+
+            # Return success response with email status
+            return JsonResponse({
+                'success': True,
+                'status': new_status,
+                'email_sent': email_sent,
+            })
         else:
             # Return error if the status is invalid
             return JsonResponse({'error': 'Invalid status'}, status=400)
-        
     
     # Return error for non-POST requests
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import Product, Review, OrderItem
 
 @login_required
 def add_review(request, product_id):
@@ -852,9 +1072,19 @@ def add_review(request, product_id):
     if request.user.role != 'buyer':
         messages.error(request, 'Only buyers can leave reviews.')
         return redirect('product_list')
-    
+
+    # Get the order_id from the query parameter (passed from order_detail.html)
+    order_id = request.GET.get('order_id')
+
+    # Check if the buyer has purchased the product
     has_purchased = OrderItem.objects.filter(order__user=request.user, product=product).exists()
-    
+    if order_id:
+        # Optionally, restrict to the specific order
+        has_purchased = OrderItem.objects.filter(order__user=request.user, order__id=order_id, product=product).exists()
+
+    # Check for existing review
+    review = Review.objects.filter(user=request.user, product=product).first()
+
     if request.method == 'POST' and has_purchased:
         rating = request.POST.get('rating')
         comment = request.POST.get('comment')
@@ -863,10 +1093,19 @@ def add_review(request, product_id):
             product=product,
             defaults={'rating': rating, 'comment': comment}
         )
-        messages.success(request, 'Review submitted successfully!')
-        return redirect('product_list')
-    
-    context = {'product': product, 'has_purchased': has_purchased}
+        messages.success(request, 'Review submitted successfully! Thanks for your feedback.')
+        
+        # Redirect back to the order detail page if order_id is provided, otherwise to product detail
+        if order_id:
+            return redirect('order_detail', order_id=order_id)
+        return redirect('product_detail', product_id=product.id)
+
+    context = {
+        'product': product,
+        'has_purchased': has_purchased,
+        'review': review,  # Pass the existing review to pre-fill the form
+        'order_id': order_id,  # Pass order_id to the template (for the form)
+    }
     return render(request, 'add_review.html', context)
 
 from django.http import JsonResponse
@@ -985,7 +1224,7 @@ def chatbot(request):
             user_message = data.get('message', '').strip().lower()  # Convert to lowercase for matching
 
             if not user_message:
-                return JsonResponse({'response': 'Please enter a message.'}, status=400)
+                return JsonResponse({'response': 'Please enter a message, genius.'}, status=400)
 
             # Custom responses for specific intents
             if any(keyword in user_message for keyword in ['reset password', 'forgot password', 'change password']):
@@ -999,10 +1238,30 @@ def chatbot(request):
                 """
             elif any(keyword in user_message for keyword in ['shipping time', 'delivery time', 'how long to deliver']):
                 response = """
-                Shipping and delivery typically take 8-9 business days, depending on your location. We aim to get your order to you as fast as possible!
+                Shipping and delivery typically take 8-9 business days, depending on your location. We aim to get your order to you as fast as possible—chill, it’s not teleportation yet!
                 """
             elif 'return policy' in user_message:
-                response = "Our return policy allows returns within 30 days with original packaging. Contact support for details!"
+                response = "Our return policy allows returns within 30 days with original packaging. Contact support for details—don’t just yeet it back and expect miracles!"
+            elif any(keyword in user_message for keyword in ['track order', 'where’s my order', 'order status']):
+                response = """
+                Want to stalk your order? Log in, hit 'Order History,' and check the status on the order detail page. If it’s still lost in the void, ping support with your order ID.
+                """
+            elif any(keyword in user_message for keyword in ['cancel order', 'how to cancel', 'stop order']):
+                response = """
+                To cancel an order, tough luck if it’s already shipped. If it’s still 'pending,' head to 'Order History,' find your order, and pray there’s a cancel button. Otherwise, email support and beg nicely.
+                """
+            elif any(keyword in user_message for keyword in ['discount', 'coupon', 'promo code']):
+                response = """
+                Fishing for discounts? Check the homepage for current promos—or follow ShopEase on X for the latest codes. No, I’m not handing you a secret 90% off deal, nice try!
+                """
+            elif 'customer support' in user_message or 'contact' in user_message:
+                response = """
+                Need a human? Email support@shopease.com or tweet at @ShopEaseHelp on X. They’re probably drowning in tickets, so patience is your new best friend.
+                """
+            elif any(keyword in user_message for keyword in ['review', 'leave feedback', 'rate product']):
+                response = """
+                Wanna flex your opinion? Go to 'Order History,' find a delivered order, and hit 'Add Review' on the detail page. Don’t see it? Maybe you already ranted—check your reviews!
+                """
             else:
                 # Default to Hugging Face API for other queries
                 API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
@@ -1022,14 +1281,14 @@ def chatbot(request):
                 response = requests.post(API_URL, headers=headers, json=payload, timeout=10)
                 response.raise_for_status()
                 result = response.json()
-                response = result[0]['generated_text'] if result and isinstance(result, list) else 'Sorry, I couldn’t process that.'
+                response = result[0]['generated_text'] if result and isinstance(result, list) else 'Sorry, I couldn’t process that. My AI brain’s having a moment.'
 
             logger.info(f"User input: {user_message}, Bot response: {response}")
             return JsonResponse({'response': response})
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {str(e)}")
-            return JsonResponse({'response': 'API error. Try again later.'}, status=500)
+            return JsonResponse({'response': 'API error. Try again later—tech’s being a diva.'}, status=500)
         except Exception as e:
             logger.error(f"Chatbot error: {str(e)}")
-            return JsonResponse({'response': 'Something went wrong. Check back soon!'}, status=500)
-    return JsonResponse({'error': 'Invalid request method.'}, status=400)
+            return JsonResponse({'response': 'Something went wrong. Check back when I’ve had my coffee.'}, status=500)
+    return JsonResponse({'error': 'Invalid request method. POST it or bust.'}, status=400)

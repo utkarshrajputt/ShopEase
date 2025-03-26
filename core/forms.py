@@ -76,3 +76,4 @@ class BuyerProfileForm(forms.ModelForm):
         if not full_name:
             raise forms.ValidationError('Full name is required.')
         return cleaned_data
+    

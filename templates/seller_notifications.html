@@ -1,54 +1,142 @@
 {% extends 'base.html' %}
 {% block content %}
-    <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center bg-gradient-to-r from-blue-600 to-indigo-800 text-transparent bg-clip-text">
-            Seller Notifications
-        </h1>
+    <div class="container mx-auto px-4 py-16">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8 max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold text-gray-900 tracking-tight bg-gradient-to-r from-blue-600 to-indigo-800 text-transparent bg-clip-text">
+                Seller Notifications
+            </h1>
+            {% if notifications %}
+                <form method="post" action="{% url 'seller_clear_notifications' %}" id="clear-notifications-form">
+                    {% csrf_token %}
+                    <button type="button" id="clear-notifications-btn" class="bg-gradient-to-r from-red-500 to-red-700 text-white py-2 px-5 rounded-xl font-semibold text-sm hover:from-red-600 hover:to-red-800 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-[1.02]">
+                        Clear All
+                    </button>
+                </form>
+            {% endif %}
+        </div>
 
+        <!-- Messages -->
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} text-center mb-6 rounded-lg p-4 shadow-md">{{ message }}</div>
+                <div class="alert alert-{{ message.tags }} text-center mb-8 p-4 rounded-lg shadow-md max-w-4xl mx-auto {% if message.tags == 'success' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                    {{ message }}
+                </div>
             {% endfor %}
         {% endif %}
 
-        <!-- Clear Notifications Button -->
-        <div class="mb-6 text-right">
-            <form method="POST" action="{% url 'seller_clear_notifications' %}">
-                {% csrf_token %}
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                    Clear All Notifications
-                </button>
-            </form>
-        </div>
-
-        <!-- Notifications List -->
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Notifications</h2>
-            {% if notifications %}
-                <ul class="space-y-4">
-                    {% for notification in notifications %}
-                        <li class="{% if not notification.is_read %}bg-blue-50{% endif %} p-4 rounded-lg border flex justify-between items-center">
-                            <div>
-                                <p class="text-gray-800 {% if not notification.is_read %}font-semibold{% endif %}">
-                                    {{ notification.message }}
-                                    {% if notification.related_order %}
-                                        <a href="{% url 'order_detail' notification.related_order.id %}" class="text-blue-600 hover:underline">View Order</a>
-                                    {% endif %}
-                                </p>
-                                <p class="text-sm text-gray-500">{{ notification.created_at|date:"M d, Y H:i" }}</p>
+        <!-- Notifications -->
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg p-8">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-6">Notifications</h2>
+                {% if notifications %}
+                    <div class="space-y-6">
+                        {% for notification in notifications %}
+                            <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-md p-6 transition-all duration-300 hover:shadow-xl {% if not notification.is_read %}border-l-4 border-indigo-500{% endif %} notification-card">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <p class="text-gray-800 text-lg leading-relaxed">
+                                            {% if "new order" in notification.message.lower %}
+                                                <span class="text-indigo-600 font-semibold bg-indigo-50 px-2 py-1 rounded-full text-sm">[New Order]</span>
+                                            {% elif "stock is low" in notification.message.lower %}
+                                                <span class="text-red-600 font-semibold bg-red-50 px-2 py-1 rounded-full text-sm">[Low Stock]</span>
+                                            {% else %}
+                                                <span class="text-blue-600 font-semibold bg-blue-50 px-2 py-1 rounded-full text-sm">[General]</span>
+                                            {% endif %}
+                                            {{ notification.message }}
+                                        </p>
+                                        <p class="text-sm text-gray-500 mt-2">Created: {{ notification.created_at|date:"M d, Y H:i" }}</p>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        {% if notification.related_order %}
+                                            <a href="{% url 'order_detail' notification.related_order.id %}" class="text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-200">View Order</a>
+                                        {% endif %}
+                                        {% if not notification.is_read %}
+                                            <form method="post" action="{% url 'seller_mark_as_read' notification.id %}" class="inline-block">
+                                                {% csrf_token %}
+                                                <button type="submit" class="text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors duration-200">Mark as Read</button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
-                            {% if not notification.is_read %}
-                                <form method="POST" action="{% url 'seller_mark_as_read' notification.id %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="text-blue-600 hover:underline">Mark as Read</button>
-                                </form>
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p class="text-gray-500 text-center">No notifications available.</p>
-            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-12">
+                        <p class="text-gray-600 text-lg">No notifications yet.</p>
+                        <a href="{% url 'seller_dashboard' %}" class="mt-4 inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 px-6 rounded-xl font-semibold hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-[1.02]">
+                            Back to Dashboard
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
         </div>
     </div>
+
+    <!-- Confirmation Modal for Clear All -->
+    <div id="clear-confirmation-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Clear All Notifications?</h3>
+            <p class="text-gray-600 mb-6">This action cannot be undone. Are you sure you want to proceed?</p>
+            <div class="flex gap-4">
+                <button id="confirm-clear" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-semibold hover:bg-red-700 transition-all duration-300">Yes, Clear</button>
+                <button id="cancel-clear" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-xl font-semibold hover:bg-gray-300 transition-all duration-300">Cancel</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script>
+        // Clear All Confirmation Modal
+        const clearBtn = document.getElementById('clear-notifications-btn');
+        const clearForm = document.getElementById('clear-notifications-form');
+        const modal = document.getElementById('clear-confirmation-modal');
+        const confirmClear = document.getElementById('confirm-clear');
+        const cancelClear = document.getElementById('cancel-clear');
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                modal.classList.remove('hidden');
+            });
+        }
+
+        if (cancelClear) {
+            cancelClear.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+        }
+
+        if (confirmClear) {
+            confirmClear.addEventListener('click', () => {
+                clearForm.submit();
+            });
+        }
+    </script>
+{% endblock %}
+
+{% block extra_css %}
+    <style>
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Notification card animation */
+        .notification-card {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Modal backdrop */
+        .bg-black\/50 {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
 {% endblock %}

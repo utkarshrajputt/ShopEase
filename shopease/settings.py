@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'crispy_forms',
     'core',
 ]
 
@@ -150,5 +151,39 @@ EMAIL_HOST_USER = 'rajp15ut@gmail.com'
 EMAIL_HOST_PASSWORD = 'iwqd gsxd zdge ohyj'  
 DEFAULT_FROM_EMAIL = 'rajp15ut@gmail.com'  
 
+RAZORPAY_KEY_ID = 'rzp_test_zx2S7Ke0lkJO2J'
+RAZORPAY_KEY_SECRET = '8TSDZqbzX1A9LABvuaw7K4Is'
+
 from decouple import config
 HF_API_TOKEN = config('HF_API_TOKEN')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'debug.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}

@@ -1,35 +1,98 @@
-<!-- templates/product_detail.html -->
 {% extends 'base.html' %}
 {% block content %}
-    <div class="container mx-auto px-4 py-12">
-        <div class="max-w-3xl mx-auto">
-            <h2 class="text-3xl font-bold text-gray-800 mb-4">{{ product.name }}</h2>
-            {% if product.image %}
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-64 object-cover rounded-lg mb-4">
-            {% else %}
-                <img src="https://images.unsplash.com/photo-1523275339254-cc177407725d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" alt="Placeholder" class="w-full h-64 object-cover rounded-lg mb-4">
-            {% endif %}
-            <p class="text-gray-600 mb-4">{{ product.description|default:"No description available" }}</p>
-            <p class="text-indigo-600 font-bold text-2xl mb-2">₹{{ product.price|floatformat:2 }}</p>
-            <p class="text-gray-500 mb-4">Stock: {{ product.stock }}</p>
-            <p class="text-gray-500 mb-4">Category: {{ product.category.name|default:"Uncategorized" }}</p>
-            {% if user and user.role == 'buyer' %}
-                <a href="{% url 'add_to_cart' product.id %}" class="block w-full text-center bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 rounded-lg font-medium mb-4 hover:bg-green-600 transition">Add to Cart</a>
-                {% if not review_exists %}
-                    <a href="{% url 'add_review' product.id %}" class="block w-full text-center bg-blue-500 text-white py-2 rounded-lg font-medium hover:bg-blue-600 transition">Add Review</a>
+    <div class="container mx-auto px-4 py-16">
+        <!-- Main Product Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+            <!-- Product Image -->
+            <div class="flex justify-center items-center bg-gray-100 rounded-2xl p-6 shadow-lg relative">
+                {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" class="max-h-[400px] w-auto object-contain rounded-lg transition-transform duration-300 hover:scale-105">
+                {% else %}
+                    <img src="https://images.unsplash.com/photo-1523275339254-cc177407725d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" alt="Placeholder" class="max-h-[400px] w-auto object-contain rounded-lg transition-transform duration-300 hover:scale-105">
                 {% endif %}
-            {% endif %}
-            <h3 class="text-xl font-semibold mt-6 mb-2">Reviews</h3>
-            {% if reviews %}
-                {% for review in reviews %}
-                    <div class="bg-white p-4 rounded-lg shadow-md mb-2">
-                        <p class="text-gray-600">{{ review.comment|default:"No comment" }}</p>
-                        <p class="text-gray-500">Rating: {{ review.rating }}/5 by {{ review.user.username }} ({{ review.created_at|date:"F d, Y" }})</p>
+                <!-- Zoom Indicator -->
+                <span class="absolute top-4 right-4 bg-gray-800/70 text-white text-xs font-medium px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">Hover to Zoom</span>
+            </div>
+
+            <!-- Product Details -->
+            <div class="flex flex-col justify-between">
+                <div>
+                    <h2 class="text-4xl font-bold text-gray-900 mb-3 tracking-tight">{{ product.name }}</h2>
+                    <p class="text-gray-600 mb-4 leading-relaxed">{{ product.description|default:"No description available" }}</p>
+                    <p class="text-indigo-600 font-bold text-3xl mb-3">₹{{ product.price|floatformat:2 }}</p>
+                    <div class="flex items-center gap-4 mb-4">
+                        <p class="text-gray-600 font-medium">Stock: <span class="text-gray-800">{{ product.stock }}</span></p>
+                        <p class="text-gray-600 font-medium">Category: <span class="text-gray-800">{{ product.category.name|default:"Uncategorized" }}</span></p>
                     </div>
-                {% endfor %}
+                </div>
+
+                <!-- Action Buttons -->
+                {% if user and user.role == 'buyer' %}
+                    <div class="space-y-3 sticky top-4">
+                        <a href="{% url 'add_to_cart' product.id %}" class="block w-full text-center bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-xl font-semibold text-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-[1.02]">
+                            <i class="fas fa-cart-plus mr-2"></i>Add to Cart
+                        </a>
+                        <a href="{% url 'add_review' product.id %}" class="block w-full text-center bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold text-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-[1.02]">
+                            <i class="fas fa-star mr-2"></i>{% if review_exists %}Edit Review{% else %}Write Review{% endif %}
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Reviews Section -->
+        <div class="max-w-6xl mx-auto mt-12">
+            <h3 class="text-2xl font-semibold text-gray-900 mb-6">Customer Reviews</h3>
+            {% if reviews %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% for review in reviews %}
+                        <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 review-card">
+                            <div class="flex items-center mb-3">
+                                <!-- Star Rating -->
+                                <div class="flex items-center gap-1">
+                                    {% for i in "12345" %}
+                                        <svg class="w-5 h-5 {% if forloop.counter <= review.rating %}text-yellow-400{% else %}text-gray-300{% endif %}" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                                        </svg>
+                                    {% endfor %}
+                                </div>
+                                <span class="ml-2 text-gray-600 font-medium">{{ review.rating }}/5</span>
+                            </div>
+                            <p class="text-gray-600 italic mb-3">{{ review.comment|default:"No comment" }}</p>
+                            <div class="flex items-center">
+                                <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=50&h=50&q=80" alt="User Avatar" class="w-10 h-10 rounded-full mr-3">
+                                <p class="text-gray-800 font-semibold">{{ review.user.username }} <span class="text-gray-500 text-sm">({{ review.created_at|date:"F d, Y" }})</span></p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
             {% else %}
-                <p class="text-gray-500">No reviews yet.</p>
+                <p class="text-gray-500 text-center py-6">No reviews yet. Be the first to share your thoughts!</p>
             {% endif %}
         </div>
     </div>
+{% endblock %}
+
+{% block extra_css %}
+    <style>
+        /* Smooth transitions for hover effects */
+        .transition-all {
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Add a subtle animation for reviews */
+        .review-card {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Group hover for image container */
+        .group:hover .group-hover\:opacity-100 {
+            opacity: 1;
+        }
+    </style>
 {% endblock %}

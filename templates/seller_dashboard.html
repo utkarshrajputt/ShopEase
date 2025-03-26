@@ -56,22 +56,23 @@
                 <p class="text-3xl font-bold text-indigo-600 mt-2">₹{{ average_order_value|floatformat:2 }}</p>
             </div>
         </div>
+
         <!-- Recent Activity Section -->
-<div class="bg-white rounded-xl shadow-lg p-6 mb-10 animate-fade-in">
-    <h2 class="text-2xl font-bold text-gray-800 mb-4">Recent Activity</h2>
-    {% if recent_activities %}
-        <ul class="space-y-4">
-            {% for activity in recent_activities %}
-                <li class="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
-                    <i class="fas fa-history text-blue-600 w-5 h-5"></i>
-                    <span class="text-sm text-gray-700">{{ activity.action }} - {{ activity.timestamp|timesince }} ago</span>
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p class="text-center text-gray-500 py-4">No recent activity.</p>
-    {% endif %}
-</div>
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-10 animate-fade-in">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Recent Activity</h2>
+            {% if recent_activities %}
+                <ul class="space-y-4">
+                    {% for activity in recent_activities %}
+                        <li class="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
+                            <i class="fas fa-history text-blue-600 w-5 h-5"></i>
+                            <span class="text-sm text-gray-700">{{ activity.action }} - {{ activity.timestamp|timesince }} ago</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-center text-gray-500 py-4">No recent activity.</p>
+            {% endif %}
+        </div>
 
         <!-- Filter Section -->
         <div class="bg-gradient-to-r from-blue-100 via-blue-200 to-indigo-300 rounded-xl shadow-lg p-6 mb-10">
@@ -123,7 +124,6 @@
         </div>
 
         <!-- Orders Section with Toggle -->
-         
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-700">Orders</h2>
@@ -289,6 +289,7 @@
             return cookieValue;
         }
         const csrftoken = getCookie('csrftoken');
+        console.log('CSRF Token:', csrftoken); // Debug: Check if CSRF token is retrieved
 
         // Fetch sales data and render charts
         fetch("{% url 'sales_data' %}")
@@ -404,14 +405,25 @@
 
         // Status updates for orders
         document.querySelectorAll('.status-select').forEach(select => {
+            // Store the original status in a data attribute
+            select.dataset.originalStatus = select.value;
+
             select.addEventListener('click', (event) => {
                 event.stopPropagation();
             });
+
             select.addEventListener('change', function(event) {
                 event.stopPropagation();
                 const orderId = this.dataset.orderId;
                 const newStatus = this.value;
-                fetch(`{% url 'update_order_status' 0 %}`.replace('0', orderId), {
+                const statusSpan = document.querySelector(`.status[data-order-id="${orderId}"]`);
+                const updateUrl = `{% url 'update_order_status' 0 %}`.replace('0', orderId);
+                console.log('Update URL:', updateUrl); // Debug: Check the URL
+
+                // Disable the select to show loading state
+                this.disabled = true;
+
+                fetch(updateUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -419,19 +431,51 @@
                     },
                     body: `status=${encodeURIComponent(newStatus)}`
                 })
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Response Status:', response.status); // Debug: Check the status code
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(`HTTP error! Status: ${response.status}, Response: ${text}`);
+                        });
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Response Data:', data); // Debug: Check the response data
                     if (data.success) {
-                        alert('Status updated successfully!');
-                        location.reload();
+                        // Update the status text and styling in the DOM
+                        statusSpan.textContent = data.status;
+                        // Update the background color based on the new status
+                        statusSpan.className = 'status px-2 py-1 rounded-full text-xs';
+                        if (data.status === 'pending') {
+                            statusSpan.classList.add('bg-yellow-100', 'text-yellow-800');
+                        } else if (data.status === 'shipped') {
+                            statusSpan.classList.add('bg-blue-100', 'text-blue-800');
+                        } else if (data.status === 'delivered') {
+                            statusSpan.classList.add('bg-green-100', 'text-green-800');
+                        } else {
+                            statusSpan.classList.add('bg-red-100', 'text-red-800');
+                        }
+                        // Update the data attribute for future reference
+                        select.dataset.originalStatus = data.status;
+                        // Show email status
+                        if (data.email_sent) {
+                            alert('Status updated successfully! Email sent to buyer.');
+                        } else {
+                            alert('Status updated successfully! Email not sent (check logs).');
+                        }
                     } else {
-                        alert('Error: ' + data.error);
-                        this.value = this.dataset.originalStatus || this.value;
+                        throw new Error('Error: ' + data.error);
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    this.value = this.dataset.originalStatus || this.value;
+                    console.error('Fetch Error:', error.message); // Debug: Log the full error
+                    alert('Failed to update status: ' + error.message);
+                    this.value = this.dataset.originalStatus;
+                })
+                .finally(() => {
+                    // Re-enable the select after the request completes
+                    this.disabled = false;
                 });
             });
         });

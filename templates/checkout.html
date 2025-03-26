@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
     <div class="py-12 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Checkout</h1>
@@ -47,13 +48,18 @@
                 <p class="flex justify-between text-lg font-bold text-gray-800 border-t pt-2"><span>Total:</span> <span>₹{{ total|floatformat:2 }}</span></p>
             </div>
 
-            <form method="post" class="space-y-4">
+            <form method="post" id="checkout-form" class="space-y-4">
                 {% csrf_token %}
                 <div>
                     <label for="shipping_address" class="block text-gray-700 font-semibold mb-2">Shipping Address</label>
                     <textarea id="shipping_address" name="shipping_address" rows="3" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your shipping address" required>{{ request.POST.shipping_address|default:default_shipping_address }}</textarea>
                 </div>
-                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-semibold">Place Order</button>
+                <div class="flex space-x-4">
+                    <!-- Cash on Delivery Button -->
+                    <button type="submit" name="payment_method" value="Cash on Delivery" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-semibold">Cash on Delivery (Place Order)</button>
+                    <!-- Pay Online Button -->
+                    <button type="button" id="pay-online-btn" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition font-semibold">Pay Online</button>
+                </div>
             </form>
         </div>
 
@@ -65,27 +71,70 @@
 
 {% block extra_js %}
     {{ block.super }}
+    <!-- Razorpay SDK -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script>
-        document.querySelectorAll('.star-rating label').forEach(star => {
-            star.addEventListener('click', function() {
-                const value = this.getAttribute('data-value');
-                document.querySelectorAll('.star-rating label').forEach(s => {
-                    s.classList.remove('text-yellow-400');
-                    s.classList.add('text-gray-300');
-                    if (parseInt(s.getAttribute('data-value')) <= value) {
-                        s.classList.add('text-yellow-400');
-                        s.classList.remove('text-gray-300');
+        document.getElementById('pay-online-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const shippingAddress = document.getElementById('shipping_address').value;
+            if (!shippingAddress) {
+                alert('Shipping address is required, genius.');
+                return;
+            }
+            if (shippingAddress.length < 10) {
+                alert('Shipping address must be at least 10 characters long. Don’t skimp on details!');
+                return;
+            }
+
+            // Make an AJAX call to create the order and get Razorpay order ID
+            fetch("{% url 'create_razorpay_order' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify({
+                    shipping_address: shippingAddress,
+                    total: "{{ total }}"  // Send as a string, not a float
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // Razorpay payment options
+                const options = {
+                    "key": "{{ razorpay_key_id }}", // Pass the key_id from the view
+                    "amount": data.amount, // Amount in paise
+                    "currency": "INR",
+                    "name": "ShopEase",
+                    "description": "Order Payment",
+                    "image": "{% static 'images/favicon.ico' %}", // This line caused the error
+                    "order_id": data.razorpay_order_id, // Razorpay order ID from backend
+                    "handler": function(response) {
+                        // On successful payment, redirect to order confirmation
+                        window.location.href = "{% url 'order_confirmation' order_id=0 %}".replace('0', data.order_id);
+                    },
+                    "prefill": {
+                        "name": "{{ request.user.full_name|default:request.user.username }}",
+                        "email": "{{ request.user.email }}",
+                        "contact": "{{ request.user.phone_number|default:'' }}"
+                    },
+                    "theme": {
+                        "color": "#2563eb"
                     }
-                });
-            });
-            star.addEventListener('mouseover', function() {
-                const value = this.getAttribute('data-value');
-                document.querySelectorAll('.star-rating label').forEach(s => {
-                    if (parseInt(s.getAttribute('data-value')) <= value) {
-                        s.classList.add('text-yellow-400');
-                        s.classList.remove('text-gray-300');
-                    }
-                });
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Something went wrong while initiating payment. Check your internet or blame the server.');
             });
         });
     </script>

@@ -29,35 +29,55 @@
         </div>
 
         <!-- Order Items -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-4">Items</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="p-4 font-semibold text-gray-700">Product</th>
-                            <th class="p-4 font-semibold text-gray-700">Quantity</th>
-                            <th class="p-4 font-semibold text-gray-700">Price</th>
-                            <th class="p-4 font-semibold text-gray-700">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for entry in order_items %}
-                            <tr class="border-b hover:bg-gray-50 transition-colors">
-                                <td class="p-4">{{ entry.item.product.name }}</td>
-                                <td class="p-4">{{ entry.item.quantity }}</td>
-                                <td class="p-4">₹{{ entry.item.price|floatformat:2 }}</td>
-                                <td class="p-4">₹{{ entry.total|floatformat:2 }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="4" class="p-4 text-center text-gray-600">No items in this order.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <!-- Order Items -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h2 class="text-xl font-semibold text-gray-700 mb-4">Items</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="p-4 font-semibold text-gray-700">Product</th>
+                    <th class="p-4 font-semibold text-gray-700">Quantity</th>
+                    <th class="p-4 font-semibold text-gray-700">Price</th>
+                    <th class="p-4 font-semibold text-gray-700">Total</th>
+                    {% if request.user.role == 'buyer' and order.status == 'delivered' %}
+                        <th class="p-4 font-semibold text-gray-700">Review</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in order_items %}
+                    <tr class="border-b hover:bg-gray-50 transition-colors">
+                        <td class="p-4">{{ entry.item.product.name }}</td>
+                        <td class="p-4">{{ entry.item.quantity }}</td>
+                        <td class="p-4">₹{{ entry.item.price|floatformat:2 }}</td>
+                        <td class="p-4">₹{{ entry.total|floatformat:2 }}</td>
+                        {% if request.user.role == 'buyer' and order.status == 'delivered' %}
+                            <td class="p-4">
+                                {% if entry.has_reviewed %}
+                                    <span class="text-green-600 font-semibold">Reviewed</span>
+                                {% else %}
+                                    <!-- Here it is, your precious Add Review button, don’t blink -->
+                                    <a href="{% url 'add_review' entry.item.product.id %}?order_id={{ order.id }}" 
+                                       class="inline-block bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 transition text-sm font-semibold">
+                                       Add Review
+                                    </a>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{% if request.user.role == 'buyer' and order.status == 'delivered' %}5{% else %}4{% endif %}" 
+                            class="p-4 text-center text-gray-600">
+                            No items in this order. What, did you order air?
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
         <!-- Totals -->
         <div class="bg-white rounded-lg shadow-md p-6">
